@@ -2,6 +2,8 @@ import typing, enum
 
 W, H = 400, 300
 
+U = typing.TypeVar('U')
+
 class Align(enum.Enum):
     START = 0
     CENTER = 1
@@ -14,8 +16,13 @@ class Flex(enum.Enum):
     COLUMN = 0
     ROW = 1
 
-def rgb(r, g, b) -> int:
+def rgb(r: int, g: int, b: int) -> int:
     return r << 16 | g << 8 | b
+
+def rgb565(r: int, g: int = None, b: int = None) -> int:
+    if g == None and b == None:
+        return rgb565(r >> 16, (r >> 8) & 0xff, r & 0xff)
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 
 def screenFill(screen, width, height, bgColor):
     for j in screen:
@@ -49,6 +56,20 @@ def screenCopy(screen, render, xOff, yOff):
             screen[y + yOff][x + xOff] = render[y][x]
             x+=1
         y+=1
+
+def continued(self: list[U], elem: U, start: int = 0) -> int:
+        ind = self.find(elem, start)
+        if ind > -1:
+            ctd = 1
+            while True:
+                ind += 1
+                if ind < len(self) and self[ind] == elem:
+                    ctd += 1
+                else:
+                    break
+            return ctd
+        else: return 0
+
 
 class Div:
     def __init__(
@@ -172,16 +193,41 @@ class Div:
     def width(self):
         self.render()
         return len(self.__ren[0]) if len(self.__ren) else 0
+    
+    def _renderToC(self):
+        render = self.dragonRender();
+        content = f"static uint16_t render[{len(render)}][{len(render[0])}] = " + '{\n\t' + ",\n\t".join('{' + ','.join(str(rgb565(col)) for col in row) + '}' for row in render) + '\n};'
+        header = open("img.h", 'w')
+        header.write(content)
+        header.close()
 
-Div(None, 20, bgColor = 0, alignItem = Align.CENTER, flex = Flex.COLUMN)[
-    Div(None, 20, bgColor = 0, gap = 1, alignItem = Align.CENTER, flex = Flex.COLUMN)[
+    def _optimizedRenderToC(self):
+        render = self.dragonRender()
+        content = f"static uint16_t render[{len(render)}][{len(render[0])}] = " + '{\n\t'
+
+
+Div(30*8, None, bgColor = 0, alignItem = Align.CENTER, flex = Flex.ROW)[
+    Div(30*8, None, bgColor = 0, gap = 1, alignItem = Align.CENTER, flex = Flex.ROW)[
+        Div(14*8, 10*8, bgColor = 0xff0000), 
+        Div(14*8, 10*8, bgColor = 0x00ff00), 
+        Div(30*8, 10*8, bgColor = 0x00ffff),
+        Div(10*8, 10*8, bgColor = 0xffffff),
+        Div(18*8, 10*8, bgColor = 0xff33fe), 
+        Div(16*8, 10*8, bgColor = 0xf8f7ee),
+        Div(12*8, 10*8, bgColor = 0x0000ff), 
+    ]
+]._renderToC()
+
+'''
+Div(30, None, bgColor = 0, alignItem = Align.CENTER, flex = Flex.ROW)[
+    Div(30, None, bgColor = 0, gap = 1, alignItem = Align.CENTER, flex = Flex.ROW)[
 
         Div(5, 5, bgColor = 5), 
         Div(5, 7, bgColor = 8), 
         Div(12, 5, bgColor = 6, gap = 1, alignItem = Align.CENTER) 
         [
             Div(3, 3, bgColor = 3),
-            Div(3, 3, bgColor = 2, alignSelf = Align.START)
+            Div(3, 3, bgColor = 2, alignSelf = Align.CENTER)
         ], 
         Div(5, 5, bgColor = 5), 
         Div(5, 5, bgColor = 5),
@@ -194,4 +240,5 @@ Div(None, 20, bgColor = 0, alignItem = Align.CENTER, flex = Flex.COLUMN)[
         Div(5, 5, bgColor = 5),
         Div(5, 5, bgColor = 5)
     ]
-].dragonShow()
+]._renderToC()
+'''
